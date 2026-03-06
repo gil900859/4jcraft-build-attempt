@@ -22,13 +22,13 @@ jobs:
       - name: Install Meson/Ninja
         run: pip install meson ninja
 
-      - name: Configure (Release + Windows Force + MSVC Std)
+      - name: Configure (Release)
         run: |
+          # We only override the standard to 'vc++11' because the source 
+          # hardcodes 'gnu++11', which MSVC doesn't recognize.
           meson setup build `
             --buildtype=release `
             -Dcpp_std=vc++11 `
-            -Dc_args="-D_WIN32 -D_X64 -D_WINDOWS" `
-            -Dcpp_args="-D_WIN32 -D_X64 -D_WINDOWS" `
             -Dcmake_prefix_path="C:/vcpkg/installed/x64-windows"
 
       - name: Build
@@ -38,13 +38,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "dist"
-          # Recurse to find the exe/dlls even if they are in subdirectories
-          Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | Copy-Item -Destination "dist"
-          Get-ChildItem -Path "build" -Filter "*.dll" -Recurse | Copy-Item -Destination "dist"
+          # Find all binaries/DLLs and move them to the dist folder
+          Get-ChildItem -Path "build" -Include "*.exe","*.dll" -Recurse | Copy-Item -Destination "dist"
+          # Simple batch launcher for Windows
           "@echo off`nstart Minecraft.Client.exe`n" | Out-File -FilePath "dist\launch.bat" -Encoding ascii
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: 4JCraft-Win64-Final
+          name: 4JCraft-Win64-Release
           path: dist/
