@@ -14,18 +14,29 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Remove Strawberry Perl
+        # This prevents the "Strawberry Perl is broken" error in your logs
+        run: |
+          $path = [Environment]::GetEnvironmentVariable("Path", "Machine")
+          $path = ($path.Split(';') | Where-Object { $_ -notlike "*Strawberry*" }) -join ';'
+          [Environment]::SetEnvironmentVariable("Path", $path, "Machine")
+
       - name: Setup MSVC (x64)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+
+      - name: Install Dependencies (vcpkg)
+        # Explicitly install GLU to ensure it exists in the vcpkg prefix path
+        run: |
+          vcpkg install glu:x64-windows
 
       - name: Install Meson/Ninja
         run: pip install meson ninja
 
       - name: Configure (Release)
         run: |
-          # We only override the standard to 'vc++11' because the source 
-          # hardcodes 'gnu++11', which MSVC doesn't recognize.
+          # We use the vcpkg path where we just installed GLU
           meson setup build `
             --buildtype=release `
             -Dcpp_std=vc++11 `
@@ -37,10 +48,8 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path "dist"
-          # Find all binaries/DLLs and move them to the dist folder
+          if (!(Test-Path "dist")) { New-Item -ItemType Directory -Path "dist" }
           Get-ChildItem -Path "build" -Include "*.exe","*.dll" -Recurse | Copy-Item -Destination "dist"
-          # Simple batch launcher for Windows
           "@echo off`nstart Minecraft.Client.exe`n" | Out-File -FilePath "dist\launch.bat" -Encoding ascii
 
       - name: Upload
