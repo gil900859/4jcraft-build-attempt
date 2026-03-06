@@ -22,29 +22,27 @@ jobs:
       - name: Install Meson/Ninja
         run: pip install meson ninja
 
-      - name: Configure (Release + Windows)
+      - name: Configure (Release + Windows Force)
         run: |
           meson setup build `
             --buildtype=release `
-            -Dplatform=windows `
+            -Dc_args="-D_WIN32 -D_X64 -D_WINDOWS" `
+            -Dcpp_args="-D_WIN32 -D_X64 -D_WINDOWS" `
             -Dcmake_prefix_path="C:/vcpkg/installed/x64-windows"
 
       - name: Build
         run: meson compile -C build
 
-      - name: Package Windows Bundle
+      - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "dist"
-          # Copy the exe and all necessary dlls
           Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | Copy-Item -Destination "dist"
           Get-ChildItem -Path "build" -Filter "*.dll" -Recurse | Copy-Item -Destination "dist"
-          
-          # Create the Windows launcher (Replaces the broken run.sh)
-          "@echo off`nif not exist `"Common`" (echo Missing Common folder! && pause && exit)`nstart Minecraft.Client.exe`n" | Out-File -FilePath "dist\launch_game.bat" -Encoding ascii
+          "@echo off`nstart Minecraft.Client.exe`n" | Out-File -FilePath "dist\launch.bat" -Encoding ascii
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: 4JCraft-Win64-Release
+          name: 4JCraft-Win64-Final
           path: dist/
