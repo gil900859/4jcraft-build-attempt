@@ -1,0 +1,50 @@
+name: Build Windows 64 Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Meson/Ninja
+        run: pip install meson ninja
+
+      - name: Configure (Release + Windows)
+        run: |
+          meson setup build `
+            --buildtype=release `
+            -Dplatform=windows `
+            -Dcmake_prefix_path="C:/vcpkg/installed/x64-windows"
+
+      - name: Build
+        run: meson compile -C build
+
+      - name: Package Windows Bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "dist"
+          # Copy the exe and all necessary dlls
+          Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | Copy-Item -Destination "dist"
+          Get-ChildItem -Path "build" -Filter "*.dll" -Recurse | Copy-Item -Destination "dist"
+          
+          # Create the Windows launcher (Replaces the broken run.sh)
+          "@echo off`nif not exist `"Common`" (echo Missing Common folder! && pause && exit)`nstart Minecraft.Client.exe`n" | Out-File -FilePath "dist\launch_game.bat" -Encoding ascii
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: 4JCraft-Win64-Release
+          path: dist/
